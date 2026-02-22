@@ -5,6 +5,7 @@ import prisma from './utils/prisma';
 import authRoutes from './routes/auth';
 import workspaceRoutes from './routes/workspace';
 import projectRoutes from './routes/project';
+import clientRoutes from './routes/client';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/clients', clientRoutes);
 
 // Main health-check route
 app.get('/api/health', async (req, res) => {
