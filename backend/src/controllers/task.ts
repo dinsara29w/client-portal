@@ -58,8 +58,17 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
 
         if (!workspaceId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const task = await prisma.task.update({
+        // Verify the task belongs to this workspace/project before updating
+        const existingTask = await prisma.task.findFirst({
             where: { id, projectId, workspaceId },
+        });
+
+        if (!existingTask) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        const task = await prisma.task.update({
+            where: { id },
             data: { status },
         });
 
