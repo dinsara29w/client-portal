@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import workspaceRoutes from './routes/workspace';
 import projectRoutes from './routes/project';
 import clientRoutes from './routes/client';
+import taskRoutes from './routes/task';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/clients', clientRoutes);
+app.use('/api/projects/:projectId/tasks', taskRoutes);
 
 // Main health-check route
 app.get('/api/health', async (req, res) => {

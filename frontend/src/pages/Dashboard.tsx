@@ -1,23 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, Users, FolderOpen, Settings, Bell, Search, Plus, LogOut, X, Building2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
+import Overview from './dashboard/Overview';
+import ProjectDetails from './dashboard/ProjectDetails';
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [user, setUser] = useState<{ name: string, email: string } | null>(null);
-    const [projects, setProjects] = useState<any[]>([]);
-    const [clients, setClients] = useState<any[]>([]);
 
-    // Modal states
+    // Modal states shared across dashboard components
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
-    // Forms
+    // Forms & required options for Projects
     const [newClient, setNewClient] = useState({ companyName: '', contactEmail: '', phone: '' });
     const [newProject, setNewProject] = useState({ title: '', description: '', clientId: '' });
     const [loading, setLoading] = useState(false);
+    const [clients, setClients] = useState<any[]>([]);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -30,58 +32,47 @@ export default function Dashboard() {
         }
 
         setUser(JSON.parse(storedUser));
-        fetchDashboardData();
+        fetchClients();
     }, [navigate]);
 
-    const fetchDashboardData = async () => {
+    const fetchClients = async () => {
         try {
-            const [projRes, clientRes] = await Promise.all([
-                api.get('/projects').catch(() => ({ data: [] })),
-                api.get('/clients').catch(() => ({ data: [] }))
-            ]);
-            setProjects(projRes.data);
-            setClients(clientRes.data);
-        } catch (error) {
-            console.error('Failed to fetch dashboard data', error);
-        }
-    };
+            const res = await api.get('/clients');
+            setClients(res.data);
+        } catch (e) { console.error('Error fetching clients'); }
+    }
 
     const handleCreateClient = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newClient.companyName || !newClient.contactEmail) {
-            return toast.error('Company Name and Email are required.');
-        }
+        if (!newClient.companyName || !newClient.contactEmail) return toast.error('Company Name and Email are required.');
+
         setLoading(true);
         try {
             await api.post('/clients', newClient);
             toast.success('Client added successfully!');
             setIsClientModalOpen(false);
             setNewClient({ companyName: '', contactEmail: '', phone: '' });
-            fetchDashboardData();
+            fetchClients();
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Failed to create client');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newProject.title || !newProject.clientId) {
-            return toast.error('Project Title and Client are required.');
-        }
+        if (!newProject.title || !newProject.clientId) return toast.error('Project Title and Client are required.');
+
         setLoading(true);
         try {
-            await api.post('/projects', newProject);
+            const res = await api.post('/projects', newProject);
             toast.success('Project created successfully!');
             setIsProjectModalOpen(false);
             setNewProject({ title: '', description: '', clientId: '' });
-            fetchDashboardData();
+            // Redirect to the new project
+            navigate(`/dashboard/projects/${res.data.id}`);
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Failed to create project');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const handleLogout = () => {
@@ -90,9 +81,13 @@ export default function Dashboard() {
         navigate('/login');
     };
 
-    const getInitials = (name: string) => {
-        return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'A';
-    };
+    const getInitials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'A';
+
+    const navClass = (path: string) =>
+        `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-colors ${location.pathname === path || (path !== '/dashboard' && location.pathname.startsWith(path))
+            ? 'bg-primary-50 text-primary-700'
+            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+        }`;
 
     if (!user) return null;
 
@@ -106,18 +101,18 @@ export default function Dashboard() {
                 </div>
 
                 <nav className="flex-1 p-4 space-y-1">
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-primary-50 text-primary-700 rounded-xl font-medium transition-colors">
+                    <Link to="/dashboard" className={navClass('/dashboard')}>
                         <LayoutDashboard className="w-5 h-5" /> Overview
-                    </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors font-medium">
+                    </Link>
+                    <Link to="/dashboard" className={navClass('/dashboard/projects')}>
                         <FolderOpen className="w-5 h-5" /> Projects
-                    </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors font-medium">
+                    </Link>
+                    <Link to="/dashboard" className={navClass('/dashboard/clients')}>
                         <Users className="w-5 h-5" /> Clients
-                    </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors font-medium">
+                    </Link>
+                    <Link to="/dashboard" className={navClass('/dashboard/settings')}>
                         <Settings className="w-5 h-5" /> Settings
-                    </a>
+                    </Link>
                 </nav>
 
                 <div className="p-4 border-t border-slate-100">
@@ -136,10 +131,10 @@ export default function Dashboard() {
                 </div>
             </aside>
 
-            {/* Main Content */}
+            {/* Main Content Area */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
                 {/* Header */}
-                <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 w-full">
+                <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 w-full shrink-0">
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative max-w-md w-full">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -160,128 +155,30 @@ export default function Dashboard() {
                     </div>
                 </header>
 
-                {/* Dashboard Content */}
-                <div className="flex-1 overflow-auto p-4 md:p-8">
-                    <h1 className="text-2xl font-bold text-slate-900 mb-8">Welcome back, {user.name.split(' ')[0]}! 👋</h1>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden group">
-                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-                            <p className="text-slate-500 font-medium text-sm mb-1 relative z-10">Active Projects</p>
-                            <h3 className="text-3xl font-bold text-slate-900 relative z-10">{projects.length}</h3>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden group">
-                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-                            <p className="text-slate-500 font-medium text-sm mb-1 relative z-10">Total Clients</p>
-                            <h3 className="text-3xl font-bold text-slate-900 relative z-10">{clients.length}</h3>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden group">
-                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-                            <p className="text-slate-500 font-medium text-sm mb-1 relative z-10">Tasks Due</p>
-                            <h3 className="text-3xl font-bold text-slate-900 relative z-10">0</h3>
-                        </div>
-                    </div>
-
-                    {/* Recent Projects */}
-                    <h2 className="text-lg font-bold text-slate-900 mb-4">Recent Projects</h2>
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-                        {projects.length === 0 ? (
-                            <div className="p-8 text-center text-slate-500 flex flex-col items-center">
-                                <FolderOpen className="w-12 h-12 text-slate-300 mb-3" />
-                                <p className="mb-4">No projects found. Create your first project to get started!</p>
-                                <button
-                                    onClick={() => setIsProjectModalOpen(true)}
-                                    className="px-4 py-2 bg-primary-50 text-primary-700 rounded-lg font-medium border border-primary-100 hover:bg-primary-100 transition-colors"
-                                >
-                                    Create Project
-                                </button>
-                            </div>
-                        ) : (
-                            <table className="w-full text-left border-collapse min-w-[600px]">
-                                <thead>
-                                    <tr className="bg-slate-50/50 border-b border-slate-100 text-sm font-medium text-slate-500">
-                                        <th className="px-6 py-4">Project</th>
-                                        <th className="px-6 py-4">Client</th>
-                                        <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4">Created Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {projects.map((proj) => (
-                                        <tr key={proj.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/dashboard/projects/${proj.id}`)}>
-                                            <td className="px-6 py-4 font-medium text-slate-900">{proj.title}</td>
-                                            <td className="px-6 py-4 text-slate-600">{proj.client?.companyName || 'No Client Info'}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                    {proj.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-500 text-sm">
-                                                {new Date(proj.createdAt).toLocaleDateString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
+                {/* Dynamic Nested Routes */}
+                <div className="flex-1 overflow-auto bg-slate-50 relative">
+                    <Routes>
+                        <Route path="/" element={<Overview user={user} setIsProjectModalOpen={setIsProjectModalOpen} />} />
+                        <Route path="/projects/:id" element={<ProjectDetails />} />
+                        <Route path="*" element={<Overview user={user} setIsProjectModalOpen={setIsProjectModalOpen} />} />
+                    </Routes>
                 </div>
             </main>
 
-            {/* --- MODALS --- */}
-
-            {/* Add Client Modal */}
+            {/* --- MODALS (Shared across all dashboard views) --- */}
+            {/* ... [Client Modal Same as before but minimized] */}
             {isClientModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <h3 className="font-bold text-lg text-slate-900">Add New Client</h3>
-                            <button onClick={() => setIsClientModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                                <X className="w-5 h-5" />
-                            </button>
+                            <button onClick={() => setIsClientModalOpen(false)} className="text-slate-400"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleCreateClient} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
-                                <input
-                                    type="text"
-                                    value={newClient.companyName}
-                                    onChange={(e) => setNewClient({ ...newClient, companyName: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                                    placeholder="Acme Corp"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email *</label>
-                                <input
-                                    type="email"
-                                    value={newClient.contactEmail}
-                                    onChange={(e) => setNewClient({ ...newClient, contactEmail: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                                    placeholder="contact@acme.com"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                                <input
-                                    type="text"
-                                    value={newClient.phone}
-                                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                                    placeholder="+1 (555) 000-0000"
-                                />
-                            </div>
-                            <div className="pt-2 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsClientModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" disabled={loading} className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70">
-                                    {loading ? 'Saving...' : 'Save Client'}
-                                </button>
-                            </div>
+                            <div><label className="text-sm font-medium text-slate-700">Company Name</label><input required className="w-full px-4 py-2 mt-1 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 outline-none" value={newClient.companyName} onChange={e => setNewClient({ ...newClient, companyName: e.target.value })} /></div>
+                            <div><label className="text-sm font-medium text-slate-700">Contact Email</label><input type="email" required className="w-full px-4 py-2 mt-1 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 outline-none" value={newClient.contactEmail} onChange={e => setNewClient({ ...newClient, contactEmail: e.target.value })} /></div>
+                            <div><label className="text-sm font-medium text-slate-700">Phone</label><input className="w-full px-4 py-2 mt-1 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 outline-none" value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} /></div>
+                            <div className="pt-2 flex justify-end gap-3"><button type="button" onClick={() => setIsClientModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button><button type="submit" disabled={loading} className="px-4 py-2 bg-primary-600 text-white rounded-lg">{loading ? 'Saving...' : 'Save'}</button></div>
                         </form>
                     </div>
                 </div>
@@ -290,68 +187,28 @@ export default function Dashboard() {
             {/* Add Project Modal */}
             {isProjectModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <h3 className="font-bold text-lg text-slate-900">Create New Project</h3>
-                            <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                                <X className="w-5 h-5" />
-                            </button>
+                            <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-400"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleCreateProject} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Client *</label>
-                                {clients.length === 0 ? (
-                                    <div className="text-sm p-3 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 mb-2">
-                                        You need to add a client first.
-                                        <button type="button" onClick={() => { setIsProjectModalOpen(false); setIsClientModalOpen(true); }} className="ml-2 font-bold underline">Add Client</button>
-                                    </div>
-                                ) : (
-                                    <select
-                                        value={newProject.clientId}
-                                        onChange={(e) => setNewProject({ ...newProject, clientId: e.target.value })}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all bg-white"
-                                        required
-                                    >
+                                <label className="text-sm font-medium text-slate-700">Client</label>
+                                {clients.length === 0 ? <p className="text-amber-600 text-sm mt-1">Please add a client first.</p> :
+                                    <select required className="w-full px-4 py-2 mt-1 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 outline-none" value={newProject.clientId} onChange={e => setNewProject({ ...newProject, clientId: e.target.value })}>
                                         <option value="" disabled>Select a client...</option>
-                                        {clients.map(c => (
-                                            <option key={c.id} value={c.id}>{c.companyName}</option>
-                                        ))}
+                                        {clients.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
                                     </select>
-                                )}
+                                }
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Project Title *</label>
-                                <input
-                                    type="text"
-                                    value={newProject.title}
-                                    onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                                    placeholder="E-commerce Redesign"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
-                                <textarea
-                                    value={newProject.description}
-                                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all min-h-[80px]"
-                                    placeholder="Brief project outline..."
-                                />
-                            </div>
-                            <div className="pt-2 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" disabled={loading || clients.length === 0} className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium transition-colors disabled:opacity-70">
-                                    {loading ? 'Creating...' : 'Create Project'}
-                                </button>
-                            </div>
+                            <div><label className="text-sm font-medium text-slate-700">Project Title</label><input required className="w-full px-4 py-2 mt-1 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 outline-none" value={newProject.title} onChange={e => setNewProject({ ...newProject, title: e.target.value })} /></div>
+                            <div><label className="text-sm font-medium text-slate-700">Description</label><textarea className="w-full px-4 py-2 mt-1 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary-500 outline-none" value={newProject.description} onChange={e => setNewProject({ ...newProject, description: e.target.value })} /></div>
+                            <div className="pt-2 flex justify-end gap-3"><button type="button" onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button><button type="submit" disabled={loading || clients.length === 0} className="px-4 py-2 bg-slate-900 text-white rounded-lg">{loading ? 'Creating...' : 'Create Project'}</button></div>
                         </form>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
