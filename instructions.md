@@ -22,7 +22,6 @@
 The product replaces chaotic communication across WhatsApp, email, and spreadsheets.
 
 ---
-
 # 2. Business Plan
 
 ## 2.1 Problem
