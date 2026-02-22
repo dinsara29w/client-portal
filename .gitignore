@@ -1,4 +1,7 @@
 node_modules
 dist
 .env
+.env.*
 .DS_Store
+render_env.txt
+*.log
